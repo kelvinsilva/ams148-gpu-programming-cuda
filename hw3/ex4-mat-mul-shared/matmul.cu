@@ -1,5 +1,8 @@
 //Kelvin silva
 //matrix multiply 
+
+#include "maxtranParallelShare.h"
+
 #include <iostream>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -69,7 +72,7 @@ __global__  void  MatMulKernel(Matrix A, Matrix B, Matrix C)
 		__syncthreads ();
 		// Multiply  the  submatrices
 		for (int e = 0; e < BLOCK_SIZE; e++)
-			Cvalue  += As[row][e]*Bs[e][col];
+			Cvalue  += As[row][e]*Bs[row][e]; // matrixes transposed
 		// synchronize  to make  sure  all  threads  are  done  computing
 		__syncthreads();
 	}
@@ -127,8 +130,8 @@ static timestamp_t get_timestamp();
 int main(void) {
 
 	Matrix A, B, C; 
-	int N = 1024;
-	int M = 1024;
+	int N = 16384;
+	int M = 16384; 
 
 	A.width = N;
 	B.width = N; 
@@ -152,16 +155,45 @@ int main(void) {
 
 	//set values for A and B 
 	for( int i = 0; i < A.height; i++){
-		for( int j = 0; j < A.width; j++)
-		{
-			A.elements[i*A.stride + j] = 1.0f;
+		for (int j = 0; j < A.width; j++){
+			A.elements[i*A.stride + j ] = 1.0f;
 			B.elements[i*B.stride + j] = 1.0f;
 		}
 	}
     timestamp_t t1 = get_timestamp();
-	//SharedMemCUDA
+	//SharedMemCUDA w transpose
+
+	float * mat = (float *) malloc(asize);
+	matTranSharedParallel(A.elements, mat, A.height, A.width); 
+	A.elements = mat; // repoint to transposed
+
+
+	/*printf("Orig:\n");
+	for (int i = 0; i < A.height; i++){
+		printf("\n");
+		for(int j = 0; j < A.width; j++){
+			printf(" %.2f ", A.elements[i * A.stride + j]);
+		}
+	}*/
+	/*printf("B::\n");
+	for (int i = 0; i < A.height; i++){
+		printf("\n");
+		for(int j = 0; j < A.width; j++){
+			printf(" %.2f ", B.elements[i * A.stride + j]);
+		}
+	}*/
 	MatMul(A,B,C);
+/*	printf("A x B = C: \n");
+	for (int i = 0; i < C.height; i++){
+		printf("\n");
+		for(int j = 0; j < C.width; j++){
+			printf(" %.2f ", C.elements[i * C.stride + j]);
+		}
+	}*/
     timestamp_t t2 = get_timestamp();
+	
+	double diff = (double)t2 - (double)t1;
+	printf("Time of algo: %f", diff);
 }
 
 static timestamp_t get_timestamp(){
