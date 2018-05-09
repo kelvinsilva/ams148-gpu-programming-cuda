@@ -1,0 +1,1 @@
+nvcc -o blur.exe blur.cu -arch=sm_60 -L/usr/X11R6/lib -lm -lpthread -lX11
