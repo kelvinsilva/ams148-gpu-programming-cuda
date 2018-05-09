@@ -3,8 +3,8 @@
 #include <sys/time.h>
 
 //compile with -std=c++11
-#define WIDTH 10000
-#define HEIGHT 10000
+#define WIDTH 32768 
+#define HEIGHT 32768 
 typedef unsigned long long timestamp_t;
 static timestamp_t get_timestamp();
 

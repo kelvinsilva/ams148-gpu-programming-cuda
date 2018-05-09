@@ -23,8 +23,8 @@ typedef unsigned long long timestamp_t;
 static timestamp_t get_timestamp();
 
 int main(void) {
-	int width = 10000;
-	int height = 10000;
+	int width = 32768;
+	int height = 32768;
     float *matrix, *vector, *result_vector;
 	float *d_matrix, *d_vector, *d_result_vector;
 
@@ -61,10 +61,10 @@ int main(void) {
     double diff = ((double)t1 - (double)t0);
     printf("Completed in: %lf microseconds\n", diff);
 	printf("Result:\n");
-	for (int i = 0; i < width; i++){
+	/*for (int i = 0; i < width; i++){
 		printf("%f\n", result_vector[i]);
 	}
-
+*/
     float maxError = 0.0f;
 
     printf("Max  error: %f\n", maxError);

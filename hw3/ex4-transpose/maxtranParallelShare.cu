@@ -30,8 +30,8 @@ static timestamp_t get_timestamp();
 
 int main(){
 	
-	int row = 10000;
-	int col = 10000;
+	int row = 16384;
+	int col = 16384;
 
 	float *matrix, *result;
 	float *d_matrix, *d_result;

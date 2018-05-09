@@ -24,8 +24,8 @@ static timestamp_t get_timestamp();
 
 int main(){
 	
-	int row = 10;
-	int col = 10;
+	int row = 16384;
+	int col = 16384;
 
 	float *matrix, *result;
 	float *d_matrix, *d_result;
@@ -59,24 +59,23 @@ int main(){
 
 	timestamp_t t1 = get_timestamp();
 
-
-	
 	double diff = (double)t1 - (double)t0;
 	printf("RUNNING TIME: %f microsecond\n", diff);	
-	printf("Original: \n");
+	/*printf("Original: \n");
 	for (int i = 0; i < row; i++){
 		printf("\n");
 		for(int j = 0; j < col; j++){
 			printf(" %.2f ", matrix[i * row + j]);
 		}
-	}
-	printf("Result: \n");
+	}*/
+
+	/*printf("Result: \n");
 	for (int i = 0; i < row; i++){
 		printf("\n");
 		for(int j = 0; j < col; j++){
 			printf(" %.2f ", result[i * row + j]);
 		}
-	}
+	}*/
 
 
 	return 0;
