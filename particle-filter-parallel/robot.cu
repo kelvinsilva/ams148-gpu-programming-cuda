@@ -86,7 +86,7 @@ __device__ void gpu_move_and_get_particle(struct Robot * robot, float turn, floa
 	x = fmodf(x, (float)WORLDSIZE);
 	y = fmodf(y, (float)WORLDSIZE); //cyclic map
 
-	particle_out_alloc = (struct Robot * ) malloc (sizeof(struct Robot));
+	//particle_out_alloc = (struct Robot * ) malloc (sizeof(struct Robot));
 	particle_out_alloc->x = x;
 	particle_out_alloc->y = y;
 	particle_out_alloc->orientation = orientation;
@@ -109,7 +109,7 @@ __device__ float gpu_calculate_measurement_probability(struct Robot* particle, s
 
 	if (sd->num_sensor_readings != ld->num_landmarks){ //sensor read data must be same as landmark data
 
-		return;
+		return -1.0;
 	}	
 	float prob = 1.0;
 	int sz = ld->num_landmarks;
