@@ -6,9 +6,9 @@
 #include <iostream>
 
 //number of particles to run in particle filter
-#define N_PARTICLES 1024 //256 min value 
+#define N_PARTICLES 4092 //256 min value 
 //number of iterations of the particle filter
-#define N_ITERATIONS 100
+#define N_ITERATIONS 1000
 //how many particles to assign to each thread block
 #define DIVISIONS 1024 
 
@@ -190,8 +190,8 @@ int main(){
 		cudaMemcpy(h_weight_prob, d_weight_prob, sizeof(double) * N_PARTICLES, cudaMemcpyDeviceToHost);
 		
 		std::cout << "-----------------------" << std::endl;
-		for (int i = 0; i < 10; i++){
-			std::cout <<(float) h_weight_prob[i] << std::endl;
+		for (int j = 0; j < 10; j++){
+			std::cout <<(float) h_weight_prob[j] << std::endl;
 		}
 		
 		// bring the new particles back to the host from motion_update_parallel

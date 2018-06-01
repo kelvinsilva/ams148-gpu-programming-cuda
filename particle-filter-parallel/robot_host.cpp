@@ -103,8 +103,8 @@ double eval_error(struct Robot* r, struct Robot* particle_list, int n_particles)
 	double sum = 0.0;
 	for (int i = 0; i < n_particles; i++){
 		
-		double dx = (particle_list[i].x - r->x + (WORLDSIZE / 2.0)) % WORLDSIZE - (WORLDSIZE/2.0) ;
-		double dy = (particle_list[i].y - r->y + (WORLDSIZE / 2.0)) % WORLDSIZE - (WORLDSIZE/2.0) ;
+		double dx = (particle_list[i].x - r->x + fmod((WORLDSIZE / 2.0),  WORLDSIZE)) - (WORLDSIZE/2.0) ;
+		double dy = (particle_list[i].y - r->y + fmod((WORLDSIZE / 2.0),  WORLDSIZE)) - (WORLDSIZE/2.0) ;
 		double err = sqrt( dx * dx + dy * dy);
 		sum += err;
 	}	
