@@ -48,9 +48,9 @@ __device__ void gpu_sense(struct Robot* robot, struct LandmarkData* ld, struct S
 
 __device__ void gpu_move_and_get_particle(struct Robot * robot, float turn, float forward, struct Robot * particle_out_alloc);
 
-__device__ float gpu_gaussian(float mu, float sigma, float x);
+__device__ double gpu_gaussian(double mu, double sigma, double x);
 
-__device__ float gpu_calculate_measurement_probability(struct Robot* particle, struct SensorData * sd, struct LandmarkData * ld );
+__device__ double gpu_calculate_measurement_probability(struct Robot* particle, struct SensorData * sd, struct LandmarkData * ld );
 
 /* CPU VERSION */
 
@@ -66,8 +66,8 @@ float gaussian(float mu, float sigma, float x);
 
 float calculate_measurement_probability(struct Robot* particle, struct SensorData * sd, struct LandmarkData * ld );
 
-
-
+//single thread eval
+double eval_error(struct Robot* r, struct Robot* particle_list, int n_particles);
 
 
 #endif

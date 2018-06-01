@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=hw3
-#SBATCH --output=particle-filter.out
+#SBATCH --job-name=parallel_pf
+#SBATCH --output=output.out
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-type=END,FAIL
@@ -10,4 +10,4 @@
 
 module load cuda/cuda-9.1
 
-./particle-filter.exe
+./particle_filter.exe

@@ -96,29 +96,31 @@ __device__ void gpu_move_and_get_particle(struct Robot * robot, float turn, floa
 }
  
 //calculate the probability of x for 1 dim gaussian
-__device__ float gpu_gaussian(float mu, float sigma, float x){
+__device__ double gpu_gaussian(double mu, double sigma, double x){
 
-	float first = (mu - x); first = first * first;
+	double first = (mu - x); first = first * first;
+	first =  first * (double)-1.0;
+	
 	sigma = sigma * sigma;
-	return exp(-1 * (first / sigma / 2.0) / sqrt(2.0 * PI * sigma));	
+	
+	return exp((first / sigma / (double)2.0) / (sqrt((double)2.0 *(double)PI * sigma)));	
 
 }
-
 //calculate how likely a measurement will be for particle filtering of a particular particle
-__device__ float gpu_calculate_measurement_probability(struct Robot* particle, struct SensorData * sd, struct LandmarkData * ld ){
+__device__ double gpu_calculate_measurement_probability(struct Robot* particle, struct SensorData * sd, struct LandmarkData * ld ){
 
 	if (sd->num_sensor_readings != ld->num_landmarks){ //sensor read data must be same as landmark data
 
 		return -1.0;
 	}	
-	float prob = 1.0;
+	double prob = (double) 1.;
 	int sz = ld->num_landmarks;
 	for(int i = 0; i < sz; i++){
-
-		float first = particle->x - ld->landmarks[i].x; first = first * first;
-		float second = particle->y - ld->landmarks[i].y; second = second * second;
-		float dist = sqrt(first + second); 
-	 	prob *= gpu_gaussian(dist, particle->sense_noise, sd->sensor_readings[i].x); 
+		double first = (double)particle->x - (double)ld->landmarks[i].x; first = first * first;
+		double second = (double)particle->y - (double)ld->landmarks[i].y; second = second * second;
+		double dist = (double)sqrt(first + second); 
+		//scale due to double precision
+	 	prob *= gpu_gaussian(dist, (double)particle->sense_noise, (double)sd->sensor_readings[i].x); 
 	}
 	return prob;
 }

@@ -44,18 +44,14 @@ void sense(struct Robot* robot, struct LandmarkData* ld, struct SensorData * out
 	for(int i = 0; i < sz; i++){
 		float first = robot->x - ld->landmarks[i].x; first = first * first;
 		float second = robot->y - ld->landmarks[i].y; second = second * second;
-		outld[i].x = sqrt( first + second);
-		outld[i].x += RANDOM_NUMBER_0_1;
+		(outld->sensor_readings[i]).x = sqrt( first + second);
+		(outld->sensor_readings[i]).x += RANDOM_NUMBER_0_1;
 	}
-	outld->sensor_readings = out;
-	outld->num_sensor_readings = sz;
+	outld->num_sensor_readings = ld->num_landmarks;
 }
 
 void move_and_get_particle(struct Robot * robot, float turn, float forward, struct Robot * particle_out_alloc){
 
-	if (forward < 0){
-		particle_out_alloc = NULL;
-	}
 
 	float orientation = robot->orientation + turn + RANDOM_NUMBER_0_1; // simple noise for now 
 	orientation =  fmod(orientation, (float)2.0 * PI);
@@ -101,4 +97,16 @@ float calculate_measurement_probability(struct Robot* particle, struct SensorDat
 	return prob;
 }
 
+//single thread eval
+double eval_error(struct Robot* r, struct Robot* particle_list, int n_particles){
 
+	double sum = 0.0;
+	for (int i = 0; i < n_particles; i++){
+		
+		double dx = (particle_list[i].x - r->x + (WORLDSIZE / 2.0)) % WORLDSIZE - (WORLDSIZE/2.0) ;
+		double dy = (particle_list[i].y - r->y + (WORLDSIZE / 2.0)) % WORLDSIZE - (WORLDSIZE/2.0) ;
+		double err = sqrt( dx * dx + dy * dy);
+		sum += err;
+	}	
+	return sum / (float)n_particles;
+}
