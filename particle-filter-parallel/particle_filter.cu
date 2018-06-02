@@ -54,6 +54,29 @@ __global__ void measurement_update_parallel(struct Robot* d_particle_list, struc
 	__syncthreads();
 }	
 
+//https://stackoverflow.com/questions/24537112/uniformly-distributed-pseudorandom-integers-inside-cuda-kernel/24537113#24537113
+//https://arxiv.org/pdf/1301.4019.pdf
+__global__ void metropolis_resample_parallel(struct Robot * d_particle_list, double* d_weight_prob, int n_particles, int B, struct Robot * d_resampled_list_out){
+
+	int i =  blockIdx.x * blockDim.x + threadIdx.x;
+	int k = i;
+
+	curandState state;
+	curand_init((unsigned long long)clock() + k, 0, 0, &state);
+
+	for (int i = 0; i < B; i++){
+		double u = curand_uniform_double(&state);
+		float rand_num = curand_uniform(&state);
+		rand_num *= ( (n_particles-1) - 0 + 0.999999 );
+		rand_num += 0;
+		int j = __float2int_rz(rand_num);
+
+		if ((double)u <= ((double)d_weight_prob[j] / (double)d_weight_prob[k] )){
+			k = j;
+		}
+	}
+	d_resampled_list_out[i] = d_particle_list[k]; 
+}	
 
 
 int main(){
@@ -148,6 +171,9 @@ int main(){
 
 	//setup resampling result array
 	struct Robot * h_particle_list_p3 = new struct Robot[N_PARTICLES];
+	struct Robot * d_particle_list_p3;
+	cudaMalloc((void**) &d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES);
+
 
 	for(int i = 0; i < N_ITERATIONS; i++){
 	// for particle filter iterations
@@ -197,19 +223,10 @@ int main(){
 		// bring the new particles back to the host from motion_update_parallel
 		cudaMemcpy(h_particle_list, d_particle_list, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
 
-		int index = rand() % (N_PARTICLES); // fix
-		float beta = 0.0;
-		float max_weight = *std::max_element(h_weight_prob, h_weight_prob + N_PARTICLES); 
+		metropolis_resample_parallel<<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_weight_prob, N_PARTICLES, 256, d_particle_list_p3);
 
-		for (int i = 0; i < N_PARTICLES; i++){
-			beta += (float)((double) rand() / (RAND_MAX)) * 2.0 * max_weight;
-			while(beta > h_weight_prob[index]){
-				
-				beta -= h_weight_prob[index];
-				index = (index + 1 ) % N_PARTICLES;
-			}
-			h_particle_list_p3[i] = h_particle_list[index];  //ith weight at ith particle
-		}
+		cudaMemcpy(h_particle_list_p3, d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
+
 		std::cout << "Particle List: x: " << h_particle_list_p3[0].x << " y: " << h_particle_list_p3[0].y << std::endl;
 		//update particles on gpu after resampling
 		std::cout << "Error: " << i << " th iteration: " << eval_error(&my_robot, h_particle_list_p3, N_PARTICLES) << std::endl;
