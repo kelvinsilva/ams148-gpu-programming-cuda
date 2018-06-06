@@ -20,7 +20,10 @@
 #define PARTICLE_NOISE_F 0.05
 #define PARTICLE_NOISE_T 0.05
 #define PARTICLE_NOISE_S 5.00
+
+#define METROPOLIS_B 16 
 const int NUM_SENSOR_READINGS = NUM_LANDMARKS; //landmarks = sensor readings enforce
+
 
 typedef unsigned long long timestamp_t;
 static timestamp_t get_timestamp();
@@ -35,43 +38,43 @@ __global__ void generate_particles( struct Robot* d_particle_list, int n_threads
 	gpu_init_robot(r);
 	gpu_set_noise(r, PARTICLE_NOISE_F, PARTICLE_NOISE_T, PARTICLE_NOISE_S);
 }
+	
+/*
+Particle Filter One Iteration Function
+-----------------------------------------------------------------------------------------------------
+@float turn 								- Current angle of real robot
+@float xdir 								- Current forward velocity of real robot
+@struct Robot* d_particle_list 				- Pointer to device memory for particle list
+@struct SensorData* d_my_robot_sensor_data  - Pointer to device memory for real robots sensor data
+@struct LandmarkData* d_map_landmarks 		- Pointer to device memory representing landmarks on map
+@double* d_weight_prob 						- Pointer to device memory for weight distribution list
+@int B										- Parameter for Metropolis Resampling specifying degree of unbiasedness in resampling
+@int n_particles 							- Number of particles for particle filter 
 
-//motion update
-//motion_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, N_PARTICLES); 
 
-__global__ void motion_update_parallel (struct Robot* d_particle_list, float turn, float xdir, int n_particles){
+*/
+__global__ void particle_filter_one_iteration(float turn, float xdir, struct Robot* d_particle_list, struct SensorData* d_my_robot_sensor_data, struct LandmarkData* d_map_landmarks, double* d_weight_prob, int B, int n_particles){
+
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i > n_particles-1){
 		return;
 	}
-	struct Robot* r = &d_particle_list[i];
-
-	gpu_move_and_get_particle(r, turn, xdir, r);  
-	__syncthreads();
-}
-
-//measurement_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_my_robot_sensor_data, d_map_landmarks, d_weight_prob, N_PARTICLES);
-
-__global__ void measurement_update_parallel(struct Robot* d_particle_list, struct SensorData* d_my_robot_sensor_data, struct LandmarkData* d_map_landmarks, double* d_weight_prob, int n_particles){
-
-	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	if (i > n_particles-1){ //bounds check
-		return;
+// /****************************Motion Update********************************************/
+	{
+		struct Robot* r = &d_particle_list[i];
+		gpu_move_and_get_particle(r, turn, xdir, r);  
 	}
-	struct Robot* r = &d_particle_list[i];
-    d_weight_prob[i] = gpu_calculate_measurement_probability(r, d_my_robot_sensor_data, d_map_landmarks);
 	__syncthreads();
-}	
 
-//https://stackoverflow.com/questions/24537112/uniformly-distributed-pseudorandom-integers-inside-cuda-kernel/24537113#24537113
-//https://arxiv.org/pdf/1301.4019.pdf
-__global__ void metropolis_resample_parallel(struct Robot * d_particle_list, double* d_weight_prob, int n_particles, int B, struct Robot * d_resampled_list_out){
+// /*****************************Measurement Update****************************************/
+	{
 
+		struct Robot* r = &d_particle_list[i];
+		d_weight_prob[i] = gpu_calculate_measurement_probability(r, d_my_robot_sensor_data, d_map_landmarks);
+	}
+	__syncthreads();
+// /*********************************Metropolis Resampling********************************/
 	
-	int i =  blockIdx.x * blockDim.x + threadIdx.x;
-	if (i > n_particles){ //bounds check
-		return;
-	}
 	int k = i;
 
 	curandState state;
@@ -88,8 +91,16 @@ __global__ void metropolis_resample_parallel(struct Robot * d_particle_list, dou
 			k = j;
 		}
 	}
-	d_resampled_list_out[i] = d_particle_list[k]; 
+	struct Robot r_temp = d_particle_list[k];
+	__syncthreads();
+	d_particle_list[i] = r_temp; 
+
+	__syncthreads();
 }	
+
+//https://stackoverflow.com/questions/24537112/uniformly-distributed-pseudorandom-integers-inside-cuda-kernel/24537113#24537113
+//https://arxiv.org/pdf/1301.4019.pdf
+
 
 
 int main(){
@@ -204,47 +215,45 @@ int main(){
 		}
 		std::cout << "Robot Move: " << my_robot.x << " " << my_robot.y << std::endl;
 		*/
+
+		//transfer host sensor readings to device
 		cudaMemcpy(d_my_robot_sensor_read, &my_robot_sensor_data.sensor_readings[0], sizeof(struct SensorRead) * my_robot_sensor_data.num_sensor_readings, cudaMemcpyHostToDevice);
 
+		particle_filter_one_iteration<<<NUM_BLOCKS, NUM_THREADS>>>(MOVE_UPDATE_THETA, MOVE_UPDATE_X, d_particle_list, d_my_robot_sensor_data, d_map_landmarks, d_weight_prob, METROPOLIS_B, N_PARTICLES); 
+	
+		//__global__ void particle_filter_one_iteration(float turn, float xdir, struct Robot* d_particle_list, struct SensorData* d_my_robot_sensor_data, struct LandmarkData* d_map_landmarks, double* d_weight_prob, int B, int n_particles){
 
-
-		// do motion update parallelized	
+	// do motion update parallelized	
 		//cuda malloc and copy my robot measurement dat to device
 
-		motion_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, MOVE_UPDATE_THETA, MOVE_UPDATE_X, N_PARTICLES); 
+//		motion_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, MOVE_UPDATE_THETA, MOVE_UPDATE_X, N_PARTICLES); 
 		//SYNC CUDA 
-		cudaDeviceSynchronize();
+//		cudaDeviceSynchronize();
 
 
 
 		//do measurement update on particles (prediction), return weights for particles
 		//float* measurements = new float[N_PARTICLES];
 
-		measurement_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_my_robot_sensor_data, d_map_landmarks, d_weight_prob, N_PARTICLES);
+//		measurement_update_parallel <<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_my_robot_sensor_data, d_map_landmarks, d_weight_prob, N_PARTICLES);
 
-		cudaDeviceSynchronize();
+//		cudaDeviceSynchronize();
 
 		// now need to do particle filter resampling
 		// for simple case do a serial particle filter resampling. after code written, then do metropolis		
 
 		// bring weights back to the host
-		cudaMemcpy(h_weight_prob, d_weight_prob, sizeof(double) * N_PARTICLES, cudaMemcpyDeviceToHost);
-		
-		std::cout << "-----------------------" << std::endl;
-		for (int j = 0; j < 10; j++){
-			std::cout <<(float) h_weight_prob[j] << std::endl;
-		}
-		
+	
 		// bring the new particles back to the host from motion_update_parallel
 		//with metropolis resample, dont need: cudaMemcpy(h_particle_list, d_particle_list, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
 
-		metropolis_resample_parallel<<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_weight_prob, N_PARTICLES, 256, d_particle_list_p3);
+//		metropolis_resample_parallel<<<NUM_BLOCKS, NUM_THREADS>>>(d_particle_list, d_weight_prob, N_PARTICLES, 256, d_particle_list_p3);
 
-		cudaMemcpy(h_particle_list_p3, d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
+//		cudaMemcpy(h_particle_list_p3, d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
 
-		std::cout << "Particle List: x: " << h_particle_list_p3[0].x << " y: " << h_particle_list_p3[0].y << std::endl;
-		std::cout << "Error: " << i << " th iteration: " << eval_error(&my_robot, h_particle_list_p3, N_PARTICLES) << std::endl;
-		cudaMemcpy(d_particle_list, d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToDevice);	
+//		std::cout << "Particle List: x: " << h_particle_list_p3[0].x << " y: " << h_particle_list_p3[0].y << std::endl;
+//		std::cout << "Error: " << i << " th iteration: " << eval_error(&my_robot, h_particle_list_p3, N_PARTICLES) << std::endl;
+//		cudaMemcpy(d_particle_list, d_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToDevice);	
 		//update particles on gpu after resampling
 		//No need: cudaMemcpy(d_particle_list, h_particle_list_p3, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyHostToDevice);
 		//
@@ -252,8 +261,17 @@ int main(){
 
 	}
 	timestamp_t t1 = get_timestamp();
+
 	double diff = (double)t1 - (double)t0;
 	std::cout << "Running TIME: " << diff << "microseconds" << std::endl;
+	cudaMemcpy(h_weight_prob, d_weight_prob, sizeof(double) * N_PARTICLES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_particle_list, d_particle_list, sizeof(struct Robot) * N_PARTICLES, cudaMemcpyDeviceToHost);
+
+	std::cout << "-----------------------" << std::endl;
+	for (int j = 0; j < 10; j++){
+		std::cout <<(float) h_weight_prob[j] << std::endl;
+	}
+	std::cout << "Error: " << eval_error(&my_robot, h_particle_list, N_PARTICLES) << std::endl;
 
 	cudaFree(d_my_robot_sensor_data);
 	cudaFree(d_my_robot_sensor_read);
